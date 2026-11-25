@@ -3,7 +3,7 @@
 ##
 ## Team members (names and ID numbers):
 ##   Person 1 [P1]: Mihail Bizjajevs   ID: 23364734
-##   Person 2 [P2]: [who?]             ID: 
+##   Person 2 [P2]: Aidan Fernandes    ID: 23068388
 ##   Person 3 [P3]: [idk?]             ID: 
 ##   Person 4 [P4]: [Seán Kirk]        ID: 23376201 
 ##
@@ -33,8 +33,21 @@
 ##       > Replaced G and h with stacked versions when C is given:
 ##             > G = [-I; +I] (2n x n), h = [n zeros; n copies of C] (2n x 1)
 ##
-##   [Name] (P2) - 
-##       > 
+##   Aidan (P2) - Bias and classifier (RBF kernel, makeB, support vector count)
+##       > Added rbf025, the RBF kernel with sigma^2 = 0.25, so it can be
+##         passed in as K (e.g. makeLambdas(Xs,Ts,K=rbf025,C=1.0))
+##       > Added an optional argument C to makeB
+##             > C = None keeps the original behaviour (every non-zero L is used)
+##             > C > 0 uses only the L's strictly between 0 and C (the points
+##               that sit exactly on the margin), with a tolerance for solver noise
+##             > Raises a clear error if no L lies strictly between 0 and C
+##       > Added svTolerance, which sets how big a multiplier must be to count
+##         as non-zero (it grows with C because the solver noise does)
+##       > Added countSupportVectors, which reports the number of support
+##         vectors (L > 0), margin vectors (0 < L < C) and bounded vectors (L = C)
+##       > Passed C into makeB inside doTest, so the bias matches the soft margin
+##       > Checked that classify and activation work with rbf025 (see the
+##         P2 check at the bottom of the file)
 ##
 ##   [Name] (P3) - 
 ##       > 
@@ -493,6 +506,20 @@ def linKernel(v1,v2):
 
 ##--------------------------------------------------------------------------
 ##
+##  rbf025
+##
+##  STUDENT CHANGE [P2]: new kernel.
+##  RBF kernel with the variance fixed at sigma^2 = 0.25, as the project
+##  requires.  It takes just two vectors, so it can be passed in as K in
+##  the same way as polyKernel or linKernel.
+##
+
+def rbf025(v1,v2):
+    return rbfKernel(v1,v2,0.25)
+
+
+##--------------------------------------------------------------------------
+##
 ##  makeLambdas
 ##
 ##  Use the qp solver from the cvx package to find a list of Lagrange
@@ -656,24 +683,86 @@ def makeLambdas(Xs,Ts,K=polyKernel,C=None):             ## STUDENT CHANGE [P1]: 
 ##
 ##
 
-def makeB(Xs,Ts,Ls=None,K=polyKernel):
-    "Generate the bias given Xs, Ts and (optionally) Ls and K"
+##--------------------------------------------------------------------------
+##
+##  svTolerance
+##
+##  STUDENT CHANGE [P2]: new routine.  Decides how big a multiplier has to
+##  be before it counts as non-zero.  The solver leaves small amounts of
+##  noise on multipliers that should be zero, and with a huge C (1e6) that
+##  noise is bigger (we saw values around 1e-4), so the tolerance grows
+##  with C.  For C = 1 (or no C) it is just 1e-5, as the L's are rounded
+##  to 6 decimal places.
+##
+
+def svTolerance(C=None):
+    if C is None: return 1e-5
+    return max(1e-5, 1e-8*C)
+
+
+## STUDENT CHANGE [P2]: soft-margin bias
+## New optional argument C (the same C that was given to makeLambdas).
+##   C = None --> original behaviour: average over every non-zero L
+##   C > 0    --> only points with 0 < L < C are used to find b.
+## Reason: in a soft-margin SVM, a point with L = C lies inside its margin
+## or is misclassified, so it is NOT on the margin line and the formula
+## above does not hold for it.  Only points with 0 < L < C sit exactly on
+## the margin.  The inner sum below still runs over all non-zero L's,
+## because every support vector contributes to the discriminant function.
+
+def makeB(Xs,Ts,Ls=None,K=polyKernel,C=None):    ## STUDENT CHANGE [P2]: added C=None
+##def makeB(Xs,Ts,Ls=None,K=polyKernel):          ## [ORIGINAL]
+    "Generate the bias given Xs, Ts and (optionally) Ls, K and C"
     ## Note 0.0 bias parameter in call to setup (can't setup bias
     ## within bias setup routine, would lead to infinite regress.
     Ls,dummyB = setupMultipliersAndBias(Xs,Ts,Ls,0.0,K)
-    ## Calculate bias as average over all support vectors (non-zero
-    ## Lagrange multipliers).
+    tol = svTolerance(C)       ## STUDENT CHANGE [P2]: tolerance for solver noise
+                               ## (grows with C, see svTolerance).
+    ## Calculate bias as average over the margin support vectors.
     sv_count = 0
     b_sum = 0.0
     for n in range(len(Ts)):
-        if Ls[n] >= 1e-10:   ## 1e-10 for numerical stability.
+        if C is None:                                       ## STUDENT CHANGE [P2]
+            on_margin = Ls[n] >= 1e-10                      ## hard margin: any non-zero L
+        else:
+            on_margin = (Ls[n] > tol) and (Ls[n] < C - tol) ## soft margin: 0 < L < C
+##      if Ls[n] >= 1e-10:   ## 1e-10 for numerical stability.   [ORIGINAL]
+        if on_margin:                                       ## STUDENT CHANGE [P2]
             sv_count += 1
             b_sum += Ts[n]
             for i in range(len(Ts)):
                 if Ls[i] >= 1e-10:
                     b_sum -= Ls[i] * Ts[i] * K(Xs[i],Xs[n])
-            
+
+    if sv_count == 0:                                       ## STUDENT CHANGE [P2]
+        raise Exception("makeB: no multipliers strictly between 0 and C")
     return b_sum/sv_count
+
+
+##--------------------------------------------------------------------------
+##
+##  countSupportVectors
+##
+##  STUDENT CHANGE [P2]: new routine, used for the support vector counts
+##  in the report.  Given the multipliers Ls from makeLambdas (and C, if
+##  a soft margin was used) it returns a tuple (n_sv, n_margin, n_bound):
+##
+##      n_sv     -- all support vectors, i.e. L > 0
+##      n_margin -- support vectors exactly on a margin, 0 < L < C
+##      n_bound  -- support vectors with L = C (inside the margin or
+##                  misclassified).  Always 0 if C is None.
+##
+##  The same tolerance as makeB (svTolerance) is used.
+##
+
+def countSupportVectors(Ls,C=None):
+    tol = svTolerance(C)
+    n_sv = sum(1 for l in Ls if l > tol)
+    if C is None:
+        return (n_sv,n_sv,0)
+    n_margin = sum(1 for l in Ls if tol < l < C - tol)
+    n_bound  = sum(1 for l in Ls if l >= C - tol)
+    return (n_sv,n_margin,n_bound)
 
 
 ##--------------------------------------------------------------------------
@@ -930,7 +1019,8 @@ def doTest(Xs,Ts,K=polyKernel,title=None,contours=False,minRange=-0.6,maxRange=1
     print("  L vector:", Ls)
 
     if status == "optimal":
-        b = makeB(Xs,Ts,Ls,K)
+        b = makeB(Xs,Ts,Ls,K,C)       ## [P2] passed C so the bias matches the soft margin
+##      b = makeB(Xs,Ts,Ls,K)         ## [ORIGINAL]
         print("  bias:", b)
         if testClassifier(Xs,Ts,Ls,b,K,verbose=False):
             print("  Check PASSED")
@@ -1039,3 +1129,37 @@ doTest(XN1+XN2,                             ## inputs
        lambda v1,v2: rbfKernel(v1,v2,0.2),  ## kernel. rbf with s2=0.2
        "Attempting to generate Lagrange multipliers for overlapping normal distributions",
        contours=True,minRange=-1.5,maxRange=2.5)
+
+
+##------------------------------------------------------------------------------
+##
+## STUDENT CHANGE [P2]: check of rbf025, makeB, classify and activation.
+##
+## Trains the overlapping normal distributions with the project RBF kernel
+## (sigma^2 = 0.25) for both C values, then prints:
+##    > the bias and the number of support vectors for each C
+##    > how far the activation is from +/-1 on the margin support vectors
+##      (it should be about 0, which shows makeB and activation agree)
+##    > the number of misclassified training points
+## N.B. Uses XN1/XN2 from normalpoints for now.  Swap in the project's
+## training data once it is loaded (P3).
+##
+
+Xs_p2 = XN1+XN2
+Ts_p2 = len(XN1)*[+1]+len(XN2)*[-1]
+
+for C_p2 in [1.0,1e6]:
+    status,Ls_p2 = makeLambdas(Xs_p2,Ts_p2,K=rbf025,C=C_p2)
+    b_p2 = makeB(Xs_p2,Ts_p2,Ls_p2,K=rbf025,C=C_p2)
+    n_sv,n_margin,n_bound = countSupportVectors(Ls_p2,C_p2)
+    ## On a margin support vector, Ts[i]*activation should equal 1.
+    gaps = [abs(Ts_p2[i]*activation(Xs_p2[i],Xs_p2,Ts_p2,Ls_p2,b_p2,rbf025) - 1.0)
+            for i in range(len(Ts_p2)) if svTolerance(C_p2) < Ls_p2[i] < C_p2 - svTolerance(C_p2)]
+    wrong = sum(1 for i in range(len(Ts_p2))
+                if classify(Xs_p2[i],Xs_p2,Ts_p2,Ls_p2,b_p2,rbf025,False) != Ts_p2[i])
+    print("P2 check, C =",C_p2)
+    print("  status:",status,"  bias:",b_p2)
+    print("  support vectors:",n_sv,"  on margin (0<L<C):",n_margin,"  at L=C:",n_bound)
+    print("  largest |Ts*activation - 1| on margin vectors:",max(gaps) if gaps else None)
+    print("  misclassified training points:",wrong)
+    print("\n")
