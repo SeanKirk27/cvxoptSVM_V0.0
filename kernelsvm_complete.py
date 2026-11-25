@@ -4,7 +4,7 @@
 ## Team members (names and ID numbers):
 ##   Person 1 [P1]: Mihail Bizjajevs   ID: 23364734
 ##   Person 2 [P2]: Aidan Fernandes    ID: 23068388
-##   Person 3 [P3]: [idk?]             ID: 
+##   Person 3 [P3]: Vishnu Badrinath   ID: 23132043 
 ##   Person 4 [P4]: [Seán Kirk]        ID: 23376201 
 ##
 ## Used the sample file "kernelsvm.py" as a template.
@@ -1163,3 +1163,46 @@ for C_p2 in [1.0,1e6]:
     print("  largest |Ts*activation - 1| on margin vectors:",max(gaps) if gaps else None)
     print("  misclassified training points:",wrong)
     print("\n")
+
+## STUDENT CHANGE [P3] - Data loading and classification results
+def load_dataset(filename):
+    """Read coordinates and labels from rows of the form x1 x2 class."""
+    data = np.loadtxt(filename, ndmin=2)
+    if data.shape[1] != 3 or not np.all(np.isin(data[:, 2], [-1, 1])):
+        raise ValueError(f"{filename}: expected x1 x2 and a class of -1 or +1")
+    return data[:, :2].tolist(), data[:, 2].astype(int).tolist()
+
+
+def evaluate(X_eval, y_eval, X_train, y_train, lambdas, bias):
+    """Score a fitted model on the supplied evaluation points."""
+    predictions = np.array([
+        classify(point, X_train, y_train, lambdas, bias, K=rbf025, verbose=False)
+        for point in X_eval
+    ])
+    actual = np.array(y_eval)
+    accuracy = 100 * np.mean(predictions == actual)
+    fp = np.count_nonzero((actual == -1) & (predictions == 1))
+    fn = np.count_nonzero((actual == 1) & (predictions == -1))
+    return accuracy, fp, fn, predictions
+
+
+def run_project(C):
+    X_train, y_train = load_dataset("training-dataset-aut-2026.txt")
+    X_test, y_test = load_dataset("testing-dataset-aut-2026.txt")
+
+    status, lambdas = makeLambdas(X_train, y_train, K=rbf025, C=C)
+    if status != "optimal":
+        raise RuntimeError(f"Training failed for C={C}: {status}")
+    bias = makeB(X_train, y_train, lambdas, K=rbf025, C=C)
+
+    print(f"{'C':>10}  {'Dataset':<9}  {'Accuracy':>9}  {'FP':>4}  {'FN':>4}")
+    for name, X, y in [("Training", X_train, y_train), ("Testing", X_test, y_test)]:
+        accuracy, fp, fn, predictions = evaluate(X, y, X_train, y_train, lambdas, bias)
+        print(f"{C:>10,g}  {name:<9}  {accuracy:>8.1f}%  {fp:>4}  {fn:>4}")
+
+
+if __name__ == "__main__":
+    from sys import argv
+    if len(argv) != 2:
+        raise SystemExit("Usage: python svmclassifier.py C")
+    run_project(float(argv[1]))
