@@ -5,7 +5,7 @@
 ##   Person 1 [P1]: Mihail Bizjajevs   ID: 23364734
 ##   Person 2 [P2]: [who?]             ID: 
 ##   Person 3 [P3]: [idk?]             ID: 
-##   Person 4 [P4]: [hmm?]             ID: 
+##   Person 4 [P4]: [Seán Kirk]        ID: 23376201 
 ##
 ## Used the sample file "kernelsvm.py" as a template.
 ## On its own it builds a hard-margin kernel SVM wit hteh CVXOPT qp solver, and
@@ -39,8 +39,11 @@
 ##   [Name] (P3) - 
 ##       > 
 ##
-##   [Name] (P4) -
-##       >
+##   Seán Kirk (P4) - 23376201
+##       > Implemented the Contour plotting code.
+##          >
+##       > Added P1's optional C argument to doTest.
+##          ##> doTest is now ran with C = 1 and C = 1e6 to test the soft-margin SVM.##
 ##-------------------------------------------------------------------------------
 ## ORIGINAL COMMENTS FROM TEMPLATE HAVE BEEN KEPT THROUGHOUT
 ##-------------------------------------------------------------------------------
@@ -769,7 +772,7 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     assert len(Xs) == len(Ts)
     assert len(Xs[0]) == 2   ## Only works with a 2-d classifier.
 
-    ####PERSON 2: Wrote the code for contour plotting below####
+    ####PERSON 4: Wrote the code for contour plotting below####
     #
     #  Generate the Lagrange multipliers and bias if the caller didn't supply them.
     #
@@ -784,7 +787,6 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     #  Plot the boundary (activation = 0, green), the positive margin
     #  (activation = +1, red) and the negative margin (activation = -1, blue).
     #
-    plt.figure(figsize=(7,7))
     cs = plt.contour(xs,ys,Z,levels=[-1.0,0.0,1.0],
                      colors=['blue','green','red'],
                      linestyles=['dashed','solid','dashed'],linewidths=[1.5,2.0,1.5])
@@ -918,12 +920,12 @@ T2and=makeAnd(X2s)
 
 ## Test wrapper.
 ##
-def doTest(Xs,Ts,K=polyKernel,title=None,contours=False,minRange=-0.6,maxRange=1.6,step=0.05):
+def doTest(Xs,Ts,K=polyKernel,title=None,contours=False,minRange=-0.6,maxRange=1.6,step=0.05, C=1e6): ##[P4] added C=None
     "Run a test problem."
     if title: print(title)
     else:
         print("Running test on input {} / outputs {}".format(Xs,Ts))
-    status,Ls = makeLambdas(Xs,Ts,K)
+    status,Ls = makeLambdas(Xs,Ts,K, C) ##[P4]Passed C
     print("  Result status:", status)
     print("  L vector:", Ls)
 

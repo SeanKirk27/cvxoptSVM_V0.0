@@ -712,10 +712,58 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     "Plot contours of activation function for a 2-d classifier, e.g. 2-input XOR."
     assert len(Xs) == len(Ts)
     assert len(Xs[0]) == 2   ## Only works with a 2-d classifier.
+
+    ####PERSON 2: Wrote the code for contour plotting below####
     #
-    #  Your plotCoutours code goes here
+    #  Generate the Lagrange multipliers and bias if the caller didn't supply them.
     #
+    Ls,b = setupMultipliersAndBias(Xs,Ts,Ls,b,K)
     #
+    #  Evaluate the activation function over a square grid of points.
+    #
+    xs = arange(minRange,maxRange+step/2,step)
+    ys = arange(minRange,maxRange+step/2,step)
+    Z  = array([[activation([x,y],Xs,Ts,Ls,b,K) for x in xs] for y in ys])
+    #
+    #  Plot the boundary (activation = 0, green), the positive margin
+    #  (activation = +1, red) and the negative margin (activation = -1, blue).
+    #
+    plt.figure(figsize=(7,7))
+    cs = plt.contour(xs,ys,Z,levels=[-1.0,0.0,1.0],
+                     colors=['blue','green','red'],
+                     linestyles=['dashed','solid','dashed'],linewidths=[1.5,2.0,1.5])
+    if labelContours:
+        plt.clabel(cs,fmt={-1.0:'-1',0.0:'0',1.0:'+1'},fontsize=9)
+    #
+    #  Plot the training points: class +1 as red crosses, class -1 as blue
+    #  circles.  Support vectors (non-zero multipliers) are ringed in black.
+    #
+    for i in range(len(Xs)):
+        x,y = Xs[i][0],Xs[i][1]
+        if Ts[i] > 0: plt.plot(x,y,'r+',markersize=8,markeredgewidth=1.5)
+        else:         plt.plot(x,y,'bo',markersize=5,markerfacecolor='none')
+        if Ls[i] >= 1e-5:
+            plt.plot(x,y,'ko',markersize=10,markerfacecolor='none',markeredgewidth=0.8)
+        if labelPoints:
+            plt.annotate("{}".format(i),(x,y),textcoords="offset points",
+                         xytext=(4,4),fontsize=7)
+    #
+    #  Legend (proxy lines, as contour sets don't produce legend entries directly).
+    #
+    from matplotlib.lines import Line2D
+    plt.legend(handles=[Line2D([0],[0],color='green',lw=2,label='Boundary (0)'),
+                        Line2D([0],[0],color='red',lw=1.5,ls='--',label='+ve margin (+1)'),
+                        Line2D([0],[0],color='blue',lw=1.5,ls='--',label='-ve margin (-1)'),
+                        Line2D([0],[0],color='r',marker='+',ls='',label='Class +1'),
+                        Line2D([0],[0],color='b',marker='o',ls='',markerfacecolor='none',label='Class -1'),
+                        Line2D([0],[0],color='k',marker='o',ls='',markerfacecolor='none',label='Support vector')],
+               loc='best',fontsize=8,framealpha=0.9)
+    plt.xlim(minRange,maxRange)
+    plt.ylim(minRange,maxRange)
+    plt.gca().set_aspect('equal')
+    plt.xlabel('x1')
+    plt.ylabel('x2')
+    plt.show()
     
 
 ##--------------------------------------------------------------------------
