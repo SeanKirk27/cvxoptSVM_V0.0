@@ -49,8 +49,11 @@
 ##       > Checked that classify and activation work with rbf025 (see the
 ##         P2 check at the bottom of the file)
 ##
-##   [Name] (P3) - 
-##       > 
+##    Vishnu Badrinath (P3) - Data and results
+##       > Loaded the two datasets and evaluated predictions on each split.
+##       > Reported accuracy, false positives and false negatives for the selected C.
+##       > Verified predictions separately in Colab with SVC (RBF, gamma=2).
+##       
 ##
 ##   Seán Kirk (P4) - 23376201
 ##       > Implemented the Contour plotting code.
