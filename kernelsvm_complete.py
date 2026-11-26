@@ -876,8 +876,7 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     Ls,b = setupMultipliersAndBias(Xs,Ts,Ls,b,K)
 
     ##
-    ## Step 1 (lecture): the function f(x,y) to contour.  For the SVM this is the
-    ## analogue activation level (before the +1/-1 step), not the class label.
+    ## Step 1 (lecture): the function f(x,y) to contour.
     ##
     def f(x,y):
         return activation([x,y],Xs,Ts,Ls,b,K)
@@ -893,12 +892,10 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     ##
     ## Step 3 (lecture): evaluate f at every grid point to get the "altitude" Z.
     ##
-    Z = np.zeros(X.shape)
-    for i in range(X.shape[0]):
-        for j in range(X.shape[1]):
-            Z[i,j] = f(X[i,j],Y[i,j])
+    fgrid = np.vectorize(f, otypes=[float])
+    Z = fgrid(X,Y)
 
-       ##
+
     ## Step 4 (lecture): contourf FIRST to fill the two class regions.
     ## -1e38 and +1e38 stand in for minus/plus infinity, so everything with
     ## activation < 0 (the -1 region) is tinted blue and everything with
@@ -915,7 +912,7 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     ##
     cs = plt.contour(X,Y,Z,levels=[-1.0,0.0,1.0],colors=['blue','green','red'],
                      linewidths=[2.0,3.0,2.0])
-    if labelContours:          ## Optional - lecture says not needed for the project.
+    if labelContours:          ## Optional.
         plt.clabel(cs,fmt={-1.0:'-1',0.0:'0',1.0:'+1'},fontsize=9)
 
     ##
@@ -926,37 +923,82 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     ##   Support vectors: gold disc behind the training marker.
     ##   Training: black '+' (+1) and white-filled 'o' (-1).
     ##
-    Xa = np.array(Xs); Ta = np.array(Ts); La = np.array(Ls)
-    if testXs is not None:
-        Xt = np.array(testXs); Tt = np.array(testTs)
-        plt.plot(Xt[Tt>0,0],Xt[Tt>0,1],'x',color='0.45',markersize=3,alpha=0.5,label='Test +1')
-        plt.plot(Xt[Tt<0,0],Xt[Tt<0,1],'s',color='0.45',markersize=2.5,alpha=0.5,
-                 markerfacecolor='none',label='Test -1')
-    sv = La >= 1e-5
-    plt.plot(Xa[sv,0],Xa[sv,1],'o',color='#f2c200',markersize=11,alpha=0.8,
-             markeredgewidth=0,label='Support vector')
-    plt.plot(Xa[Ta>0,0],Xa[Ta>0,1],'+',color='black',markersize=8,markeredgewidth=1.8,label='Train +1')
-    plt.plot(Xa[Ta<0,0],Xa[Ta<0,1],'o',color='black',markersize=5,markerfacecolor='white',
-             markeredgewidth=1.2,label='Train -1')
-    if labelPoints:
-        for i,(x,y) in enumerate(Xs):
-            plt.annotate(str(i),(x,y),textcoords="offset points",xytext=(4,4),fontsize=7)
+    Xa = np.array(Xs)      ## training points, one [x1, x2] row per point
+    Ta = np.array(Ts)      ## training labels (+1 / -1)
+    La = np.array(Ls)      ## Lagrange multipliers
+
+    ## True/False masks, one entry per training point.
+    isPos = Ta > 0         ## True where the point is in class +1
+    isNeg = Ta < 0         ## True where the point is in class -1
+    isSV  = La >= 1e-5     ## True where the point is a support vector
+
+    ## Use the masks to select the rows for each group.
+    trainPos = Xa[isPos]
+    trainNeg = Xa[isNeg]
+    svPoints = Xa[isSV]
 
     ##
-    ## Legend: the plotted points already have labels; add the three contour
-    ## lines by hand (contour sets don't add legend entries themselves).
-    ## [P4] Placed below the plot so it can't cover the data or be cut off.
+    ## Test points are drawn first (small, grey, see-through) so they sit
+    ## underneath everything else.  Only done if test data was passed in.
+    ##
+    if testXs is not None:
+        Xt = np.array(testXs)      ## testing points
+        Tt = np.array(testTs)      ## testing labels
+        testPos = Xt[Tt > 0]
+        testNeg = Xt[Tt < 0]
+        ## Column 0 is x1, column 1 is x2.
+        plt.plot(testPos[:,0], testPos[:,1], 'x', color='0.45', markersize=3,
+                 alpha=0.5, label='Test +1')
+        plt.plot(testNeg[:,0], testNeg[:,1], 's', color='0.45', markersize=2.5,
+                 alpha=0.5, markerfacecolor='none', label='Test -1')
+
+    ##
+    ## Support vectors: a gold disc, drawn before the training points so the
+    ## training marker sits on top of it.
+    ##
+    plt.plot(svPoints[:,0], svPoints[:,1], 'o', color='#f2c200', markersize=11,
+             alpha=0.8, markeredgewidth=0, label='Support vector')
+
+    ##
+    ## Training points in black: '+' for class +1, white-filled 'o' for class -1.
+    ## (Red, blue and green are kept for the three contour lines.)
+    ##
+    plt.plot(trainPos[:,0], trainPos[:,1], '+', color='black', markersize=8,
+             markeredgewidth=1.8, label='Train +1')
+    plt.plot(trainNeg[:,0], trainNeg[:,1], 'o', color='black', markersize=5,
+             markerfacecolor='white', markeredgewidth=1.2, label='Train -1')
+
+    ##
+    ## Optionally number each training point.
+    ##
+    if labelPoints:
+        for i in range(len(Xs)):
+            plt.annotate(str(i), (Xs[i][0], Xs[i][1]), textcoords="offset points",
+                         xytext=(4,4), fontsize=7)
+
+    ##
+    ## Legend.  Contour lines don't get legend entries automatically, so make
+    ## three stand-in lines with the same colours/widths, then add them in
+    ## front of the entries matplotlib already has for the points.
     ##
     from matplotlib.lines import Line2D
-    handles,labels = plt.gca().get_legend_handles_labels()
-    handles = [Line2D([0],[0],color='green',lw=3,label='Boundary (0)'),
-               Line2D([0],[0],color='red',lw=2,label='+ve margin (+1)'),
-               Line2D([0],[0],color='blue',lw=2,label='-ve margin (-1)')] + handles
-    plt.legend(handles=handles,loc='upper center',bbox_to_anchor=(0.5,-0.08),ncol=4,
-               fontsize=8,frameon=False)
+    boundaryLine = Line2D([0], [0], color='green', lw=3, label='Boundary (0)')
+    posMarginLine = Line2D([0], [0], color='red', lw=2, label='+ve margin (+1)')
+    negMarginLine = Line2D([0], [0], color='blue', lw=2, label='-ve margin (-1)')
 
-    plt.xlim(minRange,maxRange)
-    plt.ylim(minRange,maxRange)
+    pointHandles, pointLabels = plt.gca().get_legend_handles_labels()
+    allHandles = [boundaryLine, posMarginLine, negMarginLine] + pointHandles
+
+    ## Legend goes below the plot so it can't cover the data or be cut off.
+    plt.legend(handles=allHandles, loc='upper center', bbox_to_anchor=(0.5, -0.08),
+               ncol=4, fontsize=8, frameon=False)
+
+    ##
+    ## Axes: same range as the grid, equal scaling so distances (and margin
+    ## widths) aren't stretched, then show the figure.
+    ##
+    plt.xlim(minRange, maxRange)
+    plt.ylim(minRange, maxRange)
     plt.gca().set_aspect('equal')
     plt.xlabel('x1')
     plt.ylabel('x2')
