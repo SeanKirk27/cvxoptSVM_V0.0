@@ -864,60 +864,103 @@ import matplotlib.pyplot as plt
 from numpy import arange, array
 
 def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoints=False,
-                 minRange=-0.6,maxRange=1.6,step=0.05):
+                 minRange=-0.6,maxRange=1.6,step=0.05,testXs=None,testTs=None):  ## [P4] added testXs/testTs
     "Plot contours of activation function for a 2-d classifier, e.g. 2-input XOR."
     assert len(Xs) == len(Ts)
     assert len(Xs[0]) == 2   ## Only works with a 2-d classifier.
 
-    ####PERSON 4: Wrote the code for contour plotting below####
-    #
-    #  Generate the Lagrange multipliers and bias if the caller didn't supply them.
-    #
+    ####[P4] Contour plotting, following the "ce4041-xx-contour-plotting" lecture####
+    ##
+    ## Make sure we have the Lagrange multipliers and bias (normally passed in).
+    ##
     Ls,b = setupMultipliersAndBias(Xs,Ts,Ls,b,K)
-    #
-    #  Evaluate the activation function over a square grid of points.
-    #
-    xs = arange(minRange,maxRange+step/2,step)
-    ys = arange(minRange,maxRange+step/2,step)
-    Z  = array([[activation([x,y],Xs,Ts,Ls,b,K) for x in xs] for y in ys])
-    #
-    #  Plot the boundary (activation = 0, green), the positive margin
-    #  (activation = +1, red) and the negative margin (activation = -1, blue).
-    #
-    cs = plt.contour(xs,ys,Z,levels=[-1.0,0.0,1.0],
-                     colors=['blue','green','red'],
-                     linestyles=['dashed','solid','dashed'],linewidths=[1.5,2.0,1.5])
-    if labelContours:
+
+    ##
+    ## Step 1 (lecture): the function f(x,y) to contour.  For the SVM this is the
+    ## analogue activation level (before the +1/-1 step), not the class label.
+    ##
+    def f(x,y):
+        return activation([x,y],Xs,Ts,Ls,b,K)
+
+    ##
+    ## Step 2 (lecture): an evenly spaced grid of (x,y) points using np.mgrid
+    ## with start:stop:step slices.  The stop is nudged past maxRange so the
+    ## end point is included.  Step 0.1 to 0.05 is usually fine; 0.02 gives
+    ## smoother curves where the SVM boundary has sharp bumps (slower).
+    ##
+    X,Y = np.mgrid[minRange:maxRange+step/2:step, minRange:maxRange+step/2:step]
+
+    ##
+    ## Step 3 (lecture): evaluate f at every grid point to get the "altitude" Z.
+    ##
+    Z = np.zeros(X.shape)
+    for i in range(X.shape[0]):
+        for j in range(X.shape[1]):
+            Z[i,j] = f(X[i,j],Y[i,j])
+
+       ##
+    ## Step 4 (lecture): contourf FIRST to fill the two class regions.
+    ## -1e38 and +1e38 stand in for minus/plus infinity, so everything with
+    ## activation < 0 (the -1 region) is tinted blue and everything with
+    ## activation > 0 (the +1 region) is tinted pink.  Two gaps between the
+    ## three levels, so two colours.  [P4] Very pale tints so the lines stand out.
+    ##
+    plt.contourf(X,Y,Z,levels=[-1e38,0.0,1e38],colors=['#eaf1fb','#fbeaee'])
+
+    ##
+    ## Step 5 (lecture): contour AFTER contourf (otherwise the fill would paint
+    ## over the lines).  Levels -1, 0, +1 = negative margin, classification
+    ## boundary, positive margin, coloured blue, green, red as the brief asks.
+    ## The boundary is drawn thicker than the margins.
+    ##
+    cs = plt.contour(X,Y,Z,levels=[-1.0,0.0,1.0],colors=['blue','green','red'],
+                     linewidths=[2.0,3.0,2.0])
+    if labelContours:          ## Optional - lecture says not needed for the project.
         plt.clabel(cs,fmt={-1.0:'-1',0.0:'0',1.0:'+1'},fontsize=9)
-    #
-    #  Plot the training points: class +1 as red crosses, class -1 as blue
-    #  circles.  Support vectors (non-zero multipliers) are ringed in black.
-    #
-    for i in range(len(Xs)):
-        x,y = Xs[i][0],Xs[i][1]
-        if Ts[i] > 0: plt.plot(x,y,'r+',markersize=8,markeredgewidth=1.5)
-        else:         plt.plot(x,y,'bo',markersize=5,markerfacecolor='none')
-        if Ls[i] >= 1e-5:
-            plt.plot(x,y,'ko',markersize=10,markerfacecolor='none',markeredgewidth=0.8)
-        if labelPoints:
-            plt.annotate("{}".format(i),(x,y),textcoords="offset points",
-                         xytext=(4,4),fontsize=7)
-    #
-    #  Legend (proxy lines, as contour sets don't produce legend entries directly).
-    #
+
+    ##
+    ## Step 6 (lecture): plot the data points on the map - training AND testing.
+    ##   [P4] Only the three contour lines use strong colours; the points are
+    ##   neutral so they don't clash with the red/blue margins:
+    ##   Testing:  small grey 'x' (+1) and square (-1), drawn first, underneath.
+    ##   Support vectors: gold disc behind the training marker.
+    ##   Training: black '+' (+1) and white-filled 'o' (-1).
+    ##
+    Xa = np.array(Xs); Ta = np.array(Ts); La = np.array(Ls)
+    if testXs is not None:
+        Xt = np.array(testXs); Tt = np.array(testTs)
+        plt.plot(Xt[Tt>0,0],Xt[Tt>0,1],'x',color='0.45',markersize=3,alpha=0.5,label='Test +1')
+        plt.plot(Xt[Tt<0,0],Xt[Tt<0,1],'s',color='0.45',markersize=2.5,alpha=0.5,
+                 markerfacecolor='none',label='Test -1')
+    sv = La >= 1e-5
+    plt.plot(Xa[sv,0],Xa[sv,1],'o',color='#f2c200',markersize=11,alpha=0.8,
+             markeredgewidth=0,label='Support vector')
+    plt.plot(Xa[Ta>0,0],Xa[Ta>0,1],'+',color='black',markersize=8,markeredgewidth=1.8,label='Train +1')
+    plt.plot(Xa[Ta<0,0],Xa[Ta<0,1],'o',color='black',markersize=5,markerfacecolor='white',
+             markeredgewidth=1.2,label='Train -1')
+    if labelPoints:
+        for i,(x,y) in enumerate(Xs):
+            plt.annotate(str(i),(x,y),textcoords="offset points",xytext=(4,4),fontsize=7)
+
+    ##
+    ## Legend: the plotted points already have labels; add the three contour
+    ## lines by hand (contour sets don't add legend entries themselves).
+    ## [P4] Placed below the plot so it can't cover the data or be cut off.
+    ##
     from matplotlib.lines import Line2D
-    plt.legend(handles=[Line2D([0],[0],color='green',lw=2,label='Boundary (0)'),
-                        Line2D([0],[0],color='red',lw=1.5,ls='--',label='+ve margin (+1)'),
-                        Line2D([0],[0],color='blue',lw=1.5,ls='--',label='-ve margin (-1)'),
-                        Line2D([0],[0],color='r',marker='+',ls='',label='Class +1'),
-                        Line2D([0],[0],color='b',marker='o',ls='',markerfacecolor='none',label='Class -1'),
-                        Line2D([0],[0],color='k',marker='o',ls='',markerfacecolor='none',label='Support vector')],
-               loc='best',fontsize=8,framealpha=0.9)
+    handles,labels = plt.gca().get_legend_handles_labels()
+    handles = [Line2D([0],[0],color='green',lw=3,label='Boundary (0)'),
+               Line2D([0],[0],color='red',lw=2,label='+ve margin (+1)'),
+               Line2D([0],[0],color='blue',lw=2,label='-ve margin (-1)')] + handles
+    plt.legend(handles=handles,loc='upper center',bbox_to_anchor=(0.5,-0.08),ncol=4,
+               fontsize=8,frameon=False)
+
     plt.xlim(minRange,maxRange)
     plt.ylim(minRange,maxRange)
     plt.gca().set_aspect('equal')
     plt.xlabel('x1')
     plt.ylabel('x2')
+    plt.tight_layout()
     plt.show()
     
 
@@ -1211,14 +1254,15 @@ def run_project(C):
         ##print(f"{C:>10,g}  {name:<9}  {accuracy:>8.1f}%  {fp:>4}  {fn:>4}") ##[ORIGINAL [P3]]
 
     ## [P4] Boundary and margin plot for this C
-    allX = np.array(X_train + X_test)
-    lo, hi = allX.min() - 0.25, allX.max() + 0.25
     ##plt.figure(f"C = {C:,g}", figsize=(7, 7)) #[P3] [ORIGINAL]
     ##plt.title(f"Soft-margin RBF SVM, sigma^2 = 0.25, C = {C:,g}") #[P3] [ORIGINAL]
-    plt.figure(f"C = {Clabel}", figsize=(7, 7)) ##CLABEL [P4]
+    allX = np.array(X_train)                                  ## [P4] range from training data only
+    lo, hi = allX.min() - 0.5, allX.max() + 0.5
+    plt.figure(f"C = {Clabel}", figsize=(9, 7))               ## [P4] wider for the outside legend
     plt.title(f"RBF SVM, sigma^2 = 0.25, C = {Clabel}") ##CLABEL [P4]
     plotContours(X_train, y_train, lambdas, bias, K=rbf025,
-                 minRange=lo, maxRange=hi, step=0.05)
+                 minRange=lo, maxRange=hi, step=0.05,
+                 testXs=X_test, testTs=y_test)            ## [P4] test points shown too
 
 
 if __name__ == "__main__":
