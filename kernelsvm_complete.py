@@ -1202,7 +1202,7 @@ def run_project(C):
     if status != "optimal":
         raise RuntimeError(f"Training failed for C={C}: {status}")
     bias = makeB(X_train, y_train, lambdas, K=rbf025, C=C)
-    Clabel = "None (hard)" if C is None else f"{C:, g}" #[P4] Added Printable C label for None as well as a value
+    Clabel = "None (hard)" if C is None else f"{C: ,g}" #[P4] Added Printable C label for None as well as a value
 
     print(f"{'C':>11}  {'Dataset':<9}  {'Accuracy':>9}  {'FP':>4}  {'FN':>4}")
     for name, X, y in [("Training", X_train, y_train), ("Testing", X_test, y_test)]:
