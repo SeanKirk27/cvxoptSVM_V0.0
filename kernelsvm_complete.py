@@ -59,7 +59,11 @@
 ##       > Implemented the Contour plotting code.
 ##          >
 ##       > Added P1's optional C argument to doTest.
-##          ##> doTest is now ran with C = 1 and C = 1e6 to test the soft-margin SVM.##
+##         
+##        
+##        +Added training+testing data from brightspace to repo.
+##
+##        +Fixed plotting and printing when C is not specified. (This represents a hard margin)
 ##-------------------------------------------------------------------------------
 ## ORIGINAL COMMENTS FROM TEMPLATE HAVE BEEN KEPT THROUGHOUT
 ##-------------------------------------------------------------------------------
@@ -462,6 +466,7 @@
 
 from cvxopt import matrix,solvers
 from math import exp
+import numpy as np #[P4] Imported numpy.
 
 
 ##--------------------------------------------------------------------------
@@ -1012,7 +1017,7 @@ T2and=makeAnd(X2s)
 
 ## Test wrapper.
 ##
-def doTest(Xs,Ts,K=polyKernel,title=None,contours=False,minRange=-0.6,maxRange=1.6,step=0.05, C=1e6): ##[P4] added C=None
+def doTest(Xs,Ts,K=polyKernel,title=None,contours=False,minRange=-0.6,maxRange=1.6,step=0.05, C=None): ##[P4] added C=None
     "Run a test problem."
     if title: print(title)
     else:
@@ -1197,15 +1202,33 @@ def run_project(C):
     if status != "optimal":
         raise RuntimeError(f"Training failed for C={C}: {status}")
     bias = makeB(X_train, y_train, lambdas, K=rbf025, C=C)
+    Clabel = "None (hard)" if C is None else f"{C:, g}" #[P4] Added Printable C label for None as well as a value
 
-    print(f"{'C':>10}  {'Dataset':<9}  {'Accuracy':>9}  {'FP':>4}  {'FN':>4}")
+    print(f"{'C':>11}  {'Dataset':<9}  {'Accuracy':>9}  {'FP':>4}  {'FN':>4}")
     for name, X, y in [("Training", X_train, y_train), ("Testing", X_test, y_test)]:
         accuracy, fp, fn, predictions = evaluate(X, y, X_train, y_train, lambdas, bias)
-        print(f"{C:>10,g}  {name:<9}  {accuracy:>8.1f}%  {fp:>4}  {fn:>4}")
+        print(f"{Clabel:>11}  {name:<9}  {accuracy:>8.1f}%  {fp:>4}  {fn:>4}")   ## [P4] Clabel
+        ##print(f"{C:>10,g}  {name:<9}  {accuracy:>8.1f}%  {fp:>4}  {fn:>4}") ##[ORIGINAL [P3]]
+
+    ## [P4] Boundary and margin plot for this C
+    allX = np.array(X_train + X_test)
+    lo, hi = allX.min() - 0.25, allX.max() + 0.25
+    ##plt.figure(f"C = {C:,g}", figsize=(7, 7)) #[P3] [ORIGINAL]
+    ##plt.title(f"Soft-margin RBF SVM, sigma^2 = 0.25, C = {C:,g}") #[P3] [ORIGINAL]
+    plt.figure(f"C = {Clabel}", figsize=(7, 7)) ##CLABEL [P4]
+    plt.title(f"RBF SVM, sigma^2 = 0.25, C = {Clabel}") ##CLABEL [P4]
+    plotContours(X_train, y_train, lambdas, bias, K=rbf025,
+                 minRange=lo, maxRange=hi, step=0.05)
 
 
 if __name__ == "__main__":
     from sys import argv
-    if len(argv) != 2:
-        raise SystemExit("Usage: python svmclassifier.py C")
-    run_project(float(argv[1]))
+    if len(argv) == 2:                                           ## [P4] accepts a number or "none"
+        arg = argv[1].lower()
+        run_project(None if arg == "none" else float(arg))
+    else:                                                        ## [P4] no argument: run all three
+        for C in [None, 1.0, 1e6]:
+            run_project(C)
+##  if len(argv) != 2:                                           ## [ORIGINAL P3]
+##      raise SystemExit("Usage: python svmclassifier.py C")
+##  run_project(float(argv[1]))                                  ## [ORIGINAL P3]
