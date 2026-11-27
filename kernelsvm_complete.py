@@ -64,6 +64,7 @@
 ##        +Added training+testing data from brightspace to repo.
 ##
 ##        +Fixed plotting and printing when C is not specified. (This represents a hard margin)
+##        +Fixed P2's code, which was printing values based off of demo data.
 ##-------------------------------------------------------------------------------
 ## ORIGINAL COMMENTS FROM TEMPLATE HAVE BEEN KEPT THROUGHOUT
 ##-------------------------------------------------------------------------------
@@ -1227,39 +1228,6 @@ from normalpoints import XN1,XN2
      ##  contours=True,minRange=-1.5,maxRange=2.5)
 
 
-##------------------------------------------------------------------------------
-##
-## STUDENT CHANGE [P2]: check of rbf025, makeB, classify and activation.
-##
-## Trains the overlapping normal distributions with the project RBF kernel
-## (sigma^2 = 0.25) for both C values, then prints:
-##    > the bias and the number of support vectors for each C
-##    > how far the activation is from +/-1 on the margin support vectors
-##      (it should be about 0, which shows makeB and activation agree)
-##    > the number of misclassified training points
-## N.B. Uses XN1/XN2 from normalpoints for now.  Swap in the project's
-## training data once it is loaded (P3).
-##
-
-Xs_p2 = XN1+XN2
-Ts_p2 = len(XN1)*[+1]+len(XN2)*[-1]
-
-for C_p2 in [1.0,1e6]:
-    status,Ls_p2 = makeLambdas(Xs_p2,Ts_p2,K=rbf025,C=C_p2)
-    b_p2 = makeB(Xs_p2,Ts_p2,Ls_p2,K=rbf025,C=C_p2)
-    n_sv,n_margin,n_bound = countSupportVectors(Ls_p2,C_p2)
-    ## On a margin support vector, Ts[i]*activation should equal 1.
-    gaps = [abs(Ts_p2[i]*activation(Xs_p2[i],Xs_p2,Ts_p2,Ls_p2,b_p2,rbf025) - 1.0)
-            for i in range(len(Ts_p2)) if svTolerance(C_p2) < Ls_p2[i] < C_p2 - svTolerance(C_p2)]
-    wrong = sum(1 for i in range(len(Ts_p2))
-                if classify(Xs_p2[i],Xs_p2,Ts_p2,Ls_p2,b_p2,rbf025,False) != Ts_p2[i])
-    print("P2 check, C =",C_p2)
-    print("  status:",status,"  bias:",b_p2)
-    print("  support vectors:",n_sv,"  on margin (0<L<C):",n_margin,"  at L=C:",n_bound)
-    print("  largest |Ts*activation - 1| on margin vectors:",max(gaps) if gaps else None)
-    print("  misclassified training points:",wrong)
-    print("\n")
-
 ## STUDENT CHANGE [P3] - Data loading and classification results
 def load_dataset(filename):
     """Read coordinates and labels from rows of the form x1 x2 class."""
@@ -1281,6 +1249,39 @@ def evaluate(X_eval, y_eval, X_train, y_train, lambdas, bias):
     fn = np.count_nonzero((actual == 1) & (predictions == -1))
     return accuracy, fp, fn, predictions
 
+##------------------------------------------------------------------------------
+##
+## STUDENT CHANGE [P2]: check of rbf025, makeB, classify and activation.
+##
+## Trains the overlapping normal distributions with the project RBF kernel
+## (sigma^2 = 0.25) for both C values, then prints:
+##    > the bias and the number of support vectors for each C
+##    > how far the activation is from +/-1 on the margin support vectors
+##      (it should be about 0, which shows makeB and activation agree)
+##    > the number of misclassified training points
+## N.B. Uses XN1/XN2 from normalpoints for now.  Swap in the project's
+## training data once it is loaded (P3). ## [P4] This is fixed, now uses project's training data
+##
+
+Xs_p2, Ts_p2 = load_dataset("training-dataset-aut-2026.txt")   ## [P4] swapped in project training data (was XN1+XN2)
+##Xs_p2 = XN1+XN2                                              ## [ORIGINAL P2]
+##Ts_p2 = len(XN1)*[+1]+len(XN2)*[-1]                          ## [ORIGINAL P2]
+
+for C_p2 in [1.0,1e6]:
+    status,Ls_p2 = makeLambdas(Xs_p2,Ts_p2,K=rbf025,C=C_p2)
+    b_p2 = makeB(Xs_p2,Ts_p2,Ls_p2,K=rbf025,C=C_p2)
+    n_sv,n_margin,n_bound = countSupportVectors(Ls_p2,C_p2)
+    ## On a margin support vector, Ts[i]*activation should equal 1.
+    gaps = [abs(Ts_p2[i]*activation(Xs_p2[i],Xs_p2,Ts_p2,Ls_p2,b_p2,rbf025) - 1.0)
+            for i in range(len(Ts_p2)) if svTolerance(C_p2) < Ls_p2[i] < C_p2 - svTolerance(C_p2)]
+    wrong = sum(1 for i in range(len(Ts_p2))
+                if classify(Xs_p2[i],Xs_p2,Ts_p2,Ls_p2,b_p2,rbf025,False) != Ts_p2[i])
+    print("P2 check, C =",C_p2)
+    print("  status:",status,"  bias:",b_p2)
+    print("  support vectors:",n_sv,"  on margin (0<L<C):",n_margin,"  at L=C:",n_bound)
+    print("  largest |Ts*activation - 1| on margin vectors:",max(gaps) if gaps else None)
+    print("  misclassified training points:",wrong)
+    print("\n")
 
 def run_project(C):
     X_train, y_train = load_dataset("training-dataset-aut-2026.txt")
