@@ -5,10 +5,10 @@
 ##   Person 1 [P1]: Mihail Bizjajevs   ID: 23364734
 ##   Person 2 [P2]: Aidan Fernandes    ID: 23068388
 ##   Person 3 [P3]: Vishnu Badrinath   ID: 23132043 
-##   Person 4 [P4]: [Seán Kirk]        ID: 23376201 
+##   Person 4 [P4]: Seán Kirk          ID: 23376201 
 ##
 ## Used the sample file "kernelsvm.py" as a template.
-## On its own it builds a hard-margin kernel SVM wit hteh CVXOPT qp solver, and
+## On its own it builds a hard-margin kernel SVM with the CVXOPT qp solver, and
 ## leaves the plotContours routine blank for us to write.
 ##
 ## It was recommended for us to use this template to its fullest rather than,
@@ -49,22 +49,35 @@
 ##       > Checked that classify and activation work with rbf025 (see the
 ##         P2 check at the bottom of the file)
 ##
-##    Vishnu Badrinath (P3) - Data and results
+##    Vishnu (P3) - Data and results
 ##       > Loaded the two datasets and evaluated predictions on each split.
 ##       > Reported accuracy, false positives and false negatives for the selected C.
 ##       > Verified predictions separately in Colab with SVC (RBF, gamma=2).
 ##       
 ##
-##   Seán Kirk (P4) - 23376201
-##       > Implemented the Contour plotting code.
-##          >
-##       > Added P1's optional C argument to doTest.
-##         
-##        
-##        +Added training+testing data from brightspace to repo.
-##
-##        +Fixed plotting and printing when C is not specified. (This represents a hard margin)
-##        +Fixed P2's code, which was printing values based off of demo data.
+##   Seán (P4) - Contour plotting and integration (plotContours, run_project)
+##       > Wrote plotContours (the template left it blank), following the
+##         contour plotting lecture:
+##             > Evaluates the activation on an np.mgrid grid using np.vectorize
+##             > contourf shades the -1 and +1 regions (pale blue / pale pink)
+##             > contour draws the boundary (0, green), positive margin
+##               (+1, red) and negative margin (-1, blue)
+##       > Added optional testXs/testTs arguments to plotContours, so the
+##         testing points can be shown (small and grey, underneath)
+##             > Support vectors highlighted with a gold disc, training
+##               points in black ('+' for +1, 'o' for -1), legend below the plot
+##       > Added the plot to run_project for each C, with the plot range
+##         taken from the training data
+##       > Added C = None (hard margin) as a third classifier for comparison
+##             > Clabel prints/titles C correctly for None as well as a value
+##             > __main__ runs all three (None, 1, 1e6) with no argument, or
+##               one if given ("none" or a number)
+##       > Added P1's optional C argument to doTest (default None, so the
+##         template demos keep their original hard-margin behaviour)
+##       > Commented out the template demos (and the normalpoints import),
+##         as they are no longer needed
+##       > Moved P2's check below load_dataset and switched it from the demo
+##         data (XN1/XN2) to the project's training data
 ##-------------------------------------------------------------------------------
 ## ORIGINAL COMMENTS FROM TEMPLATE HAVE BEEN KEPT THROUGHOUT
 ##-------------------------------------------------------------------------------
@@ -612,7 +625,7 @@ def rbf025(v1,v2):
 ##   C = None --> original hard margin:  L_i >= 0
 ##   C > 0    --> soft margin (box constraint):  0 <= L_i <= C
 ##
-## How to use this (for Person 4) - Pass K and C when calling it (maybe best not to change the definition???):
+## How to use this (for Person 4) - Pass K and C when calling it:
 ##      makeLambdas(Xs, Ts, K=rbf025, C=1.0)   --> C = 1
 ##      makeLambdas(Xs, Ts, K=rbf025, C=1e6)   --> C = 1,000,000
 ##      (rbf025 = RBF kernel with sigma^2 = 0.25, defined by P2)
@@ -862,7 +875,7 @@ def testClassifier(Xs,Ts,Ls=None,b=None,K=polyKernel,verbose=True):
 ##
 ##
 import matplotlib.pyplot as plt
-from numpy import arange, array
+#from numpy import arange, array ##[P4] Didn't use this, I accessed as np.array instead.
 
 def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoints=False,
                  minRange=-0.6,maxRange=1.6,step=0.05,testXs=None,testTs=None):  ## [P4] added testXs/testTs
@@ -870,118 +883,67 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
     assert len(Xs) == len(Ts)
     assert len(Xs[0]) == 2   ## Only works with a 2-d classifier.
 
-    ####[P4] Contour plotting, following the "ce4041-xx-contour-plotting" lecture####
-    ##
-    ## Make sure we have the Lagrange multipliers and bias (normally passed in).
-    ##
-    Ls,b = setupMultipliersAndBias(Xs,Ts,Ls,b,K)
+    ## [P4] Contour plotting, based on the contour plotting lecture video.
+    Ls,b = setupMultipliersAndBias(Xs,Ts,Ls,b,K)   ## Normally passed in already
 
-    ##
-    ## Step 1 (lecture): the function f(x,y) to contour.
-    ##
-    def f(x,y):
+    def f(x,y):                                    ## Value to contour: the SVM's activation
         return activation([x,y],Xs,Ts,Ls,b,K)
 
-    ##
-    ## Step 2 (lecture): an evenly spaced grid of (x,y) points using np.mgrid
-    ## with start:stop:step slices.  The stop is nudged past maxRange so the
-    ## end point is included.  Step 0.1 to 0.05 is usually fine; 0.02 gives
-    ## smoother curves where the SVM boundary has sharp bumps (slower).
-    ##
+    ## Grid of (x,y) points. Stop goes half a step past maxRange so maxRange itself is included.
     X,Y = np.mgrid[minRange:maxRange+step/2:step, minRange:maxRange+step/2:step]
 
-    ##
-    ## Step 3 (lecture): evaluate f at every grid point to get the "altitude" Z.
-    ##
+    ## activation() works one point at a time, so vectorize it to run over the whole grid.
     fgrid = np.vectorize(f, otypes=[float])
     Z = fgrid(X,Y)
 
-
-    ## Step 4 (lecture): contourf FIRST to fill the two class regions.
-    ## -1e38 and +1e38 stand in for minus/plus infinity, so everything with
-    ## activation < 0 (the -1 region) is tinted blue and everything with
-    ## activation > 0 (the +1 region) is tinted pink.  Two gaps between the
-    ## three levels, so two colours.  [P4] Very pale tints so the lines stand out.
-    ##
+    ## Shade the -1 region (activation < 0) pale blue and the +1 region pale pink.
+    ## +/-1e38 stand in for +/- infinity. Drawn first so the lines go on top.
     plt.contourf(X,Y,Z,levels=[-1e38,0.0,1e38],colors=['#eaf1fb','#fbeaee'])
 
-    ##
-    ## Step 5 (lecture): contour AFTER contourf (otherwise the fill would paint
-    ## over the lines).  Levels -1, 0, +1 = negative margin, classification
-    ## boundary, positive margin, coloured blue, green, red as the brief asks.
-    ## The boundary is drawn thicker than the margins.
-    ##
+    ## -ve margin (-1, blue), boundary (0, green, thicker), +ve margin (+1, red).
     cs = plt.contour(X,Y,Z,levels=[-1.0,0.0,1.0],colors=['blue','green','red'],
                      linewidths=[2.0,3.0,2.0])
-    if labelContours:          ## Optional.
+    if labelContours:
         plt.clabel(cs,fmt={-1.0:'-1',0.0:'0',1.0:'+1'},fontsize=9)
 
-    ##
-    ## Step 6 (lecture): plot the data points on the map - training AND testing.
-    ##   [P4] Only the three contour lines use strong colours; the points are
-    ##   neutral so they don't clash with the red/blue margins:
-    ##   Testing:  small grey 'x' (+1) and square (-1), drawn first, underneath.
-    ##   Support vectors: gold disc behind the training marker.
-    ##   Training: black '+' (+1) and white-filled 'o' (-1).
-    ##
-    Xa = np.array(Xs)      ## training points, one [x1, x2] row per point
-    Ta = np.array(Ts)      ## training labels (+1 / -1)
+    ## Data points. Only the contour lines use strong colours, so the points are
+    ## kept neutral and don't clash with the red/blue margins.
+    Xa = np.array(Xs)      ## Training points, one [x1, x2] row each
+    Ta = np.array(Ts)      ## Training labels (+1/-1)
     La = np.array(Ls)      ## Lagrange multipliers
 
-    ## True/False masks, one entry per training point.
-    isPos = Ta > 0         ## True where the point is in class +1
-    isNeg = Ta < 0         ## True where the point is in class -1
-    isSV  = La >= 1e-5     ## True where the point is a support vector
+    isPos = Ta > 0         ## True/False masks, one entry per training point
+    isNeg = Ta < 0
+    isSV  = La >= 1e-5     ## Support vector if its multiplier is above solver noise
 
-    ## Use the masks to select the rows for each group.
     trainPos = Xa[isPos]
     trainNeg = Xa[isNeg]
     svPoints = Xa[isSV]
 
-    ##
-    ## Test points are drawn first (small, grey, see-through) so they sit
-    ## underneath everything else.  Only done if test data was passed in.
-    ##
-    if testXs is not None:
-        Xt = np.array(testXs)      ## testing points
-        Tt = np.array(testTs)      ## testing labels
+    if testXs is not None: ## Test points first (small, grey, faint) so they sit underneath
+        Xt = np.array(testXs)
+        Tt = np.array(testTs)
         testPos = Xt[Tt > 0]
         testNeg = Xt[Tt < 0]
-        ## Column 0 is x1, column 1 is x2.
         plt.plot(testPos[:,0], testPos[:,1], 'x', color='0.45', markersize=3,
                  alpha=0.5, label='Test +1')
         plt.plot(testNeg[:,0], testNeg[:,1], 's', color='0.45', markersize=2.5,
                  alpha=0.5, markerfacecolor='none', label='Test -1')
 
-    ##
-    ## Support vectors: a gold disc, drawn before the training points so the
-    ## training marker sits on top of it.
-    ##
+    ## Gold disc behind each support vector, then the training points on top
     plt.plot(svPoints[:,0], svPoints[:,1], 'o', color='#f2c200', markersize=11,
              alpha=0.8, markeredgewidth=0, label='Support vector')
-
-    ##
-    ## Training points in black: '+' for class +1, white-filled 'o' for class -1.
-    ## (Red, blue and green are kept for the three contour lines.)
-    ##
     plt.plot(trainPos[:,0], trainPos[:,1], '+', color='black', markersize=8,
              markeredgewidth=1.8, label='Train +1')
     plt.plot(trainNeg[:,0], trainNeg[:,1], 'o', color='black', markersize=5,
              markerfacecolor='white', markeredgewidth=1.2, label='Train -1')
 
-    ##
-    ## Optionally number each training point.
-    ##
-    if labelPoints:
+    if labelPoints:        ## Optionally number each training point
         for i in range(len(Xs)):
             plt.annotate(str(i), (Xs[i][0], Xs[i][1]), textcoords="offset points",
                          xytext=(4,4), fontsize=7)
 
-    ##
-    ## Legend.  Contour lines don't get legend entries automatically, so make
-    ## three stand-in lines with the same colours/widths, then add them in
-    ## front of the entries matplotlib already has for the points.
-    ##
+    ## Contour lines don't get legend entries, so add stand-in lines in front of the point entries.
     from matplotlib.lines import Line2D
     boundaryLine = Line2D([0], [0], color='green', lw=3, label='Boundary (0)')
     posMarginLine = Line2D([0], [0], color='red', lw=2, label='+ve margin (+1)')
@@ -989,21 +951,15 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
 
     pointHandles, pointLabels = plt.gca().get_legend_handles_labels()
     allHandles = [boundaryLine, posMarginLine, negMarginLine] + pointHandles
-
-    ## Legend goes below the plot so it can't cover the data or be cut off.
     plt.legend(handles=allHandles, loc='upper center', bbox_to_anchor=(0.5, -0.08),
-               ncol=4, fontsize=8, frameon=False)
+               ncol=4, fontsize=8, frameon=False)   ## Below the plot, off the data
 
-    ##
-    ## Axes: same range as the grid, equal scaling so distances (and margin
-    ## widths) aren't stretched, then show the figure.
-    ##
     plt.xlim(minRange, maxRange)
     plt.ylim(minRange, maxRange)
-    plt.gca().set_aspect('equal')
+    plt.gca().set_aspect('equal')   ## Equal scaling so margin widths aren't distorted
     plt.xlabel('x1')
     plt.ylabel('x2')
-    plt.tight_layout()
+    plt.tight_layout()              ## Makes room for the legend
     plt.show()
     
 
@@ -1216,7 +1172,8 @@ for i in range(5):
 ## and with standard deviations [0.5,0.5].
 ##
 ##
-from normalpoints import XN1,XN2
+#[P4] Demo-code artifact -- No longer needed.
+## from normalpoints import XN1,XN2
 
 ## Build a classifier for this problem, with XN1 in class +1 and XN2 in class 1.  An RBF
 ## kernel is needed, with s2 = 0.2 or smaller for successful operation.
@@ -1259,8 +1216,6 @@ def evaluate(X_eval, y_eval, X_train, y_train, lambdas, bias):
 ##    > how far the activation is from +/-1 on the margin support vectors
 ##      (it should be about 0, which shows makeB and activation agree)
 ##    > the number of misclassified training points
-## N.B. Uses XN1/XN2 from normalpoints for now.  Swap in the project's
-## training data once it is loaded (P3). ## [P4] This is fixed, now uses project's training data
 ##
 
 Xs_p2, Ts_p2 = load_dataset("training-dataset-aut-2026.txt")   ## [P4] swapped in project training data (was XN1+XN2)
