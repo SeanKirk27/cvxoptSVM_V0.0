@@ -70,7 +70,7 @@
 ##         taken from the training data
 ##       > Added C = None (hard margin) as a third classifier for comparison
 ##             > Clabel prints/titles C correctly for None as well as a value
-##             > __main__ runs all three (None, 1, 1e6) with no argument, or
+##             > __main__ runs with C = (1, 1e6) with no argument, or
 ##               one if given ("none" or a number)
 ##       > Added P1's optional C argument to doTest (default None, so the
 ##         template demos keep their original hard-margin behaviour)
@@ -914,7 +914,7 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
 
     isPos = Ta > 0         ## True/False masks, one entry per training point
     isNeg = Ta < 0
-    isSV  = La >= svTolerance(C)     ## Support vector if its multiplier is above solver noise
+    isSV  = La > svTolerance(C)     ## Support vector if its multiplier is above solver noise
 
     trainPos = Xa[isPos]
     trainNeg = Xa[isNeg]
@@ -1271,8 +1271,8 @@ if __name__ == "__main__":
     if len(argv) == 2:                                           ## [P4] accepts a number or "none"
         arg = argv[1].lower()
         run_project(None if arg == "none" else float(arg))
-    else:                                                        ## [P4] no argument: run all three
-        for C in [None, 1.0, 1e6]:
+    else:                                                        ## [P4] no argument: run C=1 and C=1e6
+        for C in [1.0, 1e6]:
             run_project(C)
 ##  if len(argv) != 2:                                           ## [ORIGINAL P3]
 ##      raise SystemExit("Usage: python svmclassifier.py C")
