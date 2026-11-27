@@ -878,7 +878,7 @@ import matplotlib.pyplot as plt
 #from numpy import arange, array ##[P4] Didn't use this, I accessed as np.array instead.
 
 def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoints=False,
-                 minRange=-0.6,maxRange=1.6,step=0.05,testXs=None,testTs=None):  ## [P4] added testXs/testTs
+                 minRange=-0.6,maxRange=1.6,step=0.05,testXs=None,testTs=None, C=None):  ## [P4] added testXs/testTs, C
     "Plot contours of activation function for a 2-d classifier, e.g. 2-input XOR."
     assert len(Xs) == len(Ts)
     assert len(Xs[0]) == 2   ## Only works with a 2-d classifier.
@@ -914,7 +914,7 @@ def plotContours(Xs,Ts,Ls=None,b=None,K=polyKernel,labelContours=False,labelPoin
 
     isPos = Ta > 0         ## True/False masks, one entry per training point
     isNeg = Ta < 0
-    isSV  = La >= 1e-5     ## Support vector if its multiplier is above solver noise
+    isSV  = La >= svTolerance(C)     ## Support vector if its multiplier is above solver noise
 
     trainPos = Xa[isPos]
     trainNeg = Xa[isNeg]
@@ -1263,7 +1263,7 @@ def run_project(C):
     plt.title(f"RBF SVM, sigma^2 = 0.25, C = {Clabel}") ##CLABEL [P4]
     plotContours(X_train, y_train, lambdas, bias, K=rbf025,
                  minRange=lo, maxRange=hi, step=0.05,
-                 testXs=X_test, testTs=y_test)            ## [P4] test points shown too
+                 testXs=X_test, testTs=y_test, C=C)            ## [P4] test points shown too
 
 
 if __name__ == "__main__":
