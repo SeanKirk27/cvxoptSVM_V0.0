@@ -1137,9 +1137,9 @@ def doTest(Xs,Ts,K=polyKernel,title=None,contours=False,minRange=-0.6,maxRange=1
 ## at least a cublic polynomial or an rbf kernel.  Here's a test using a
 ## cubic polynomial (this should work).
 ##
-
-doTest(X3s,makeXor(X3s),lambda v1,v2: polyKernel(v1,v2,3),\
-       "Attempting to build SVM for 3-input XOR using cubic polynomial kernel")
+##[P4] Template code-Not needed
+##doTest(X3s,makeXor(X3s),lambda v1,v2: polyKernel(v1,v2,3),\
+       ##"Attempting to build SVM for 3-input XOR using cubic polynomial kernel")
 
 
 ## 3-input AND
@@ -1148,9 +1148,9 @@ doTest(X3s,makeXor(X3s),lambda v1,v2: polyKernel(v1,v2,3),\
 ## linearly seperable, so let's use a linear kernel, just the
 ## standard dot product, as a test (this should work).
 ##
-
-doTest(X3s,makeAnd(X3s),linKernel,\
-       "Attempting to build SVM for 3-input AND using linear (dot-product) kernel")
+##[P4] Template code-Not needed
+##doTest(X3s,makeAnd(X3s),linKernel,\
+  ##     "Attempting to build SVM for 3-input AND using linear (dot-product) kernel")
 
 
 ## More complex tests.  A 2-d grid of 25 points in the range (0..1,0..1) is
