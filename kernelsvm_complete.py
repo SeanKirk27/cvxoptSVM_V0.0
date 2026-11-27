@@ -1176,25 +1176,28 @@ for i in range(5):
 ##
 ## Test this dataset ("square").  Display contours.
 ##
+##[P4] Demo template, No longer required
+##doTest(Xs,Ts,rbfKernel,\
+     ##  "Attempting to build SVM for 25-point 2-d 'square' dataset using RBF kernel.",
+     ##  contours=True,minRange=-0.1,maxRange=1.1)
 
-doTest(Xs,Ts,rbfKernel,\
-       "Attempting to build SVM for 25-point 2-d 'square' dataset using RBF kernel.",
-       contours=True,minRange=-0.1,maxRange=1.1)
 
-
+##[P4] Demo template, No longer required
 ##
 ## This, more complex "spiral-like" interlacing of data points
 ## works well with an RBF kernel with s2 = 0.5
 ##
-Tsv2=[-1,-1,-1,-1,-1,
-      +1,+1,+1,+1,-1,
-      +1,-1,-1,-1,-1,
-      +1,-1,-1,+1,+1,
-      +1,+1,+1,+1,+1]
+##Tsv2=[-1,-1,-1,-1,-1,
+  ##    +1,+1,+1,+1,-1,
+   ##   +1,-1,-1,-1,-1,
+   ##   +1,-1,-1,+1,+1,
+   ##   +1,+1,+1,+1,+1]
 
-doTest(Xs,Tsv2,lambda v1,v2: rbfKernel(v1,v2,0.5),\
-       "Attempting to build SVM for 25-point 2-d 'spiral' dataset using RBF kernel (s2=0.5).",
-       contours=True,minRange=-0.1,maxRange=1.1,step=0.02)
+
+##[P4] Demo template, No longer required
+##doTest(Xs,Tsv2,lambda v1,v2: rbfKernel(v1,v2,0.5),\
+ ##      "Attempting to build SVM for 25-point 2-d 'spiral' dataset using RBF kernel (s2=0.5).",
+  ##     contours=True,minRange=-0.1,maxRange=1.1,step=0.02)                                
 
 
 ##------------------------------------------------------------------------------
@@ -1216,12 +1219,12 @@ from normalpoints import XN1,XN2
 
 ## Build a classifier for this problem, with XN1 in class +1 and XN2 in class 1.  An RBF
 ## kernel is needed, with s2 = 0.2 or smaller for successful operation.
-
-doTest(XN1+XN2,                             ## inputs
-       len(XN1)*[+1]+len(XN2)*[-1],         ## training (desired) outputs
-       lambda v1,v2: rbfKernel(v1,v2,0.2),  ## kernel. rbf with s2=0.2
-       "Attempting to generate Lagrange multipliers for overlapping normal distributions",
-       contours=True,minRange=-1.5,maxRange=2.5)
+##[P4] Demo template, No longer required
+##doTest(XN1+XN2,                             ## inputs
+    ##   len(XN1)*[+1]+len(XN2)*[-1],         ## training (desired) outputs
+    ##   lambda v1,v2: rbfKernel(v1,v2,0.2),  ## kernel. rbf with s2=0.2
+    ##   "Attempting to generate Lagrange multipliers for overlapping normal distributions",
+     ##  contours=True,minRange=-1.5,maxRange=2.5)
 
 
 ##------------------------------------------------------------------------------
